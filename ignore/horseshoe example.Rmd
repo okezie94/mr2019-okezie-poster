@@ -1,0 +1,101 @@
+---
+title: "Bayesian Hierarchial MR: Applying horseshoe prior to IVW and MR-Egger models"
+author: "Okezie"
+date: "06/07/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(MendelianRandomization)
+library(mr.raps)
+library(horseshoe)
+library(foreign)
+library(kableExtra)
+```
+
+# Motivation
+
+This is a practice example on Bayesian Hierarchial MR for summary-level data. We are interested in applying the horseshoe prior on different datasets. We also hope to apply the model on MVMR.
+
+
+# Methods
+
+
+# Applied Examples 
+
+# Univariate Example
+
+Association of LDL-C on coronary heart disease
+
+```{r, message=FALSE}
+set.seed(123)
+bj <- chdlodds/chdloddsse
+wj <- matrix(c(1/chdloddsse,ldlc/chdloddsse), ncol = 2)
+#wj <- as.matrix(wj)
+
+#######
+
+IVWObject <- mr_ivw(mr_input(bx = ldlc, bxse = ldlcse, by = chdlodds, byse = chdloddsse))
+EggerObject <- mr_egger(mr_input(bx = ldlc, bxse = ldlcse, by = chdlodds, byse = chdloddsse))
+mrrapobject <- mr.raps.overdispersed(ldlc,chdlodds,ldlcse,chdloddsse)
+horse<- horseshoe(bj,wj, method.tau = "halfCauchy", method.sigma = "Jeffreys")
+
+Estimates <- c(IVWObject@Estimate,EggerObject@Estimate,mrrapobject$beta.hat,horse$BetaHat[2])
+
+LI <- c(IVWObject@CILower, EggerObject@CILower.Est, (mrrapobject$beta.hat-mrrapobject$beta.se*1.96), horse$LeftCI[2])
+
+UI <- c(IVWObject@CIUpper, EggerObject@CIUpper.Est, (mrrapobject$beta.hat+mrrapobject$beta.se*1.96), horse$RightCI[2])
+
+tab<- cbind(Estimates,LI,UI)
+
+
+rownames(tab) <- c("IVW","MREgger","MRraps","Horseshoe")
+tab
+
+
+```
+
+## Multivariate MR
+
+```{r}
+## Setting up variables 
+set.seed(123)
+MRMVInputObject <- mr_mvinput(bx = cbind(ldlc, hdlc, trig),
+bxse = cbind(hdlcse, ldlcse, trigse),
+by = chdlodds,
+byse = chdloddsse)
+
+
+bj <- chdlodds/chdloddsse
+wj2 <- matrix(c(ldlc/chdloddsse,hdlc/chdloddsse,trig/chdloddsse), ncol = 3)
+
+MRMVObject <- mr_mvivw(MRMVInputObject,
+model = "default",
+correl = FALSE,
+distribution = "normal")
+
+mvhorse<- horseshoe(bj,wj2, method.tau = "halfCauchy", method.sigma = "Jeffreys")
+
+ldl<- c(unname(MRMVObject@Estimate[1]),mvhorse$BetaHat[1])
+hdl<- c(unname(MRMVObject@Estimate[2]),mvhorse$BetaHat[2])
+tri<- c(unname(MRMVObject@Estimate[3]),mvhorse$BetaHat[3])
+
+tab2<- cbind(ldl,hdl,tri)
+rownames(tab2) <- c("MVMR","Horseshoe")
+tab2
+```
+
+```{r}
+set.seed(123)
+dat<- read.dta("bmi_insulin.dta")
+bj2<- dat$beta_outcome/dat$se_outcome
+wj3<- matrix(c(1/dat$se_outcome,dat$beta_exposure/dat$se_outcome), ncol = 2)
+#wj3<- as.matrix(wj3)
+
+horsebmi<- horseshoe(bj2,wj3, method.tau = "truncatedCauchy", method.sigma = "Jeffreys") 
+
+
+(horsebmi$RightCI[2]-horsebmi$BetaHat[2])/1.96
+
+```

@@ -1,0 +1,362 @@
+---
+# PLEASE SEE THE README for in depth description github.com/brentthorne/posterdown
+poster_height: "46.8in"
+poster_width: "33.1in"
+font_family: 'Rasa'
+#ESSENTIALS
+title: 'Investigating a pseudo-horseshoe prior for the MR-Egger model'
+author:
+  - name: '**Okezie Uche Ikonne**'
+    affil: 1
+    main: true
+    orcid: '0000-0002-8461-8099'
+    # twitter: brentthorne18 
+    email: o.uche-ikonne@lancaster.ac.uk
+  - name: Frank Dondelinger
+    affil: 2
+    main: false
+    # email: 'ag.con@posterdown.net'
+  - name: Tom Palmer
+    affil: 1
+affiliation:
+  - num: 1
+    address: Department of Mathematics and Statistics, Lancaster University
+  - num: 2
+    address: Faculty of Health and Medicine, Lancaster University
+#STYLE & FORMATTING
+title_textsize: "122pt"
+author_textsize: "1.17em"
+authorextra_textsize: "35px"
+affiliation_textsize: "25px"
+affiliation_textcol: '#00000080'
+caption_fontsize: "20pt"
+#Middle of the poster
+middle_fontfamily: "Special Elite"
+middle_textcol: "#FFFFFF" # white
+middle:textalpha: 90
+middle_fontsize: "140px"
+main_findings:
+  - "Bayesian estimation of the **MR-Egger** model using **informative priors** can **reduce bias** in the presence of **pleiotropy**."
+logoleft_name: "Figures/Shield-Twitter.jpg"
+#logocenter_name: "Figures/qrcode-bpbounds-pkgdown.png"
+logoright_name: "Figures/Shield-Twitter.jpg"
+#---POSTER BODY OPTIONS---#
+primary_colour: '#B5121B' # LU red # '#0b4545'
+secondary_colour: '#B5121B' # LU red # '#bec0c2' # '#008080'
+accent_colour: '#B5121B' # LU red # "#cc0000"
+body_bgcol: "#ffffff" # white
+body_textsize: "45px"
+body_textcol: "#000000" # black
+reference_textsize: "20px"
+#--Standard Options--#
+output: 
+  posterdown::posterdown_betterport:
+    self_contained: false
+    pandoc_args: --mathjax
+    highlight: espresso
+    number_sections: false
+    split_by: section
+    template: template-new-tp.html
+bibliography: shrinkage.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  results = 'asis',
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = 'center'
+)
+library(ggplot2)
+library(mrbayes)
+library(MendelianRandomization)
+library(MRChallenge2019)
+library(kableExtra)
+library(DiagrammeR)
+library(sm)
+library(horseshoe)
+```
+
+# Introduction
+
+<!-- Mendelian randomization (MR) uses genetic variants as instruments to estimate causal effects in epidemiology (@davey2003mendelian). -->
+
+* The MR-Egger model can consistently estimate the causal effect in the presence of pleiotropy given the InSIDE assumption holds (@bowden-ije-2015). 
+* @schmidt-ije-2017 used weakly informative priors for the MR-Egger model. Other authors have investigated alternative prior distributions in MR analyses (@berzuini2018bayesian). 
+
+<!--
+```{r dag, include=TRUE, echo=FALSE, fig.align='center', fig.cap='DAG representing MR analysis'}
+DiagrammeR::grViz("
+      digraph mrdag {
+
+      graph [rankdir=TB, layout=neato]
+
+      node [shape=box,eight=0.3, width=0.3]
+      U [label='Confounders', pos='3,1!']
+      
+      node [shape=box, height=0.3, width=0.3]
+      Y1 [label='Outcome', pos='4,0!']
+
+      node [shape=box, height=0.3, width=0.3]
+      G2 [label='SNPs', pos='0,0!']
+      X1 [label='Exposure', pos='2,0!']
+      
+      { rank = same;  Y1 }
+
+      
+	    G2 -> {X1}
+      U -> X1
+      U -> Y1
+      X1 -> {Y1}
+      
+      }
+      ", height = 350)
+```
+-->
+
+The objectives of this research work are to:
+
+* implement Bayesian estimation of IVW and MR-Egger models for a range of prior distributions in an R package.
+* investigate model performance for a range of simulated pleiotropic scenarios and a range of priors.
+
+# Methods
+
+* We implemented Bayesian estimation of the IVW and MR-Egger models in an R package `mrbayes` which automates fitting these models in the JAGS software.
+* We provide the user with a choice of priors or let them specify their own.
+
+* The MR-Egger model is written as;
+$$\frac{\Gamma_j}{\sigma_{y_j}^2} = \frac{\alpha}{{\sigma_{y_j}^2}} + \frac{\beta\gamma_j}{{\sigma_{y_j}^2}} + \varepsilon_j,\quad \varepsilon_j \sim N(0,\sigma^2)$$
+
+* Uninformative Prior $$p(\alpha) \sim N(0,1000),\ p(\beta) \sim N(0,1000),\ p(\sigma) \sim U(10,10)$$
+
+* Weakly Informative Prior $$p(\alpha) \sim N(0,1),\ p(\beta) \sim N(0,1),\ p(\sigma) \sim U(10,10)$$
+
+
+<!-- The posterior of the models is decomposed as; $$P(\mu_\beta,\sigma_\beta|\Gamma_j) \propto P(\Gamma_j|\mu_\beta,\sigma_\beta)P(\mu_\beta,\sigma_\beta)$$ -->
+
+
+* Pseudo-Horseshoe Prior$$p(\alpha) \sim N(0,1),\ p(\beta) \sim C(0,1),\ p(\sigma) \sim IG(0.5,0.5)$$
+
+
+* Figure \@ref(fig:dens) shows the densities of the priors. 
+
+<!--
+$$
+\begin{aligned}
+  p(\alpha) &\sim N(0,1)\\
+  p(\beta) &\sim C(0,1)\\
+  p(\sigma) &\sim IG(0.5,0.5).
+\end{aligned}
+$$
+-->
+
+<!--
+The posterior distribution for inference is given by,
+$$
+P(\alpha,\beta,\sigma|\Gamma_j) \propto P(\Gamma_j|\alpha,\beta,\sigma)P(\alpha,\beta,\sigma).
+$$
+-->
+
+<!--
+Implementing the horseshoe prior on a summary-level dataset would lead to overshrinkage reducing the effect of strong instruments.
+-->
+
+# Results
+
+## Simulations
+
+* We simulated two-sample summary-level data under directional pleiotropy with a true value of the causal effect of 0.05. The performance of the model was assessed using coverage and power. Results in table \@ref(tab:simtab) and figure \@ref(fig:simplot).
+
+<!-- Comments about results -->
+
+## Example
+
+
+```{r, message=FALSE, results=FALSE, echo=FALSE}
+
+
+# IVW
+ivwfit <-
+  mr_ivw(
+    mr_input(
+      bmi_insulin$dat.beta_exposure,
+      bmi_insulin$dat.se_exposure,
+      bmi_insulin$dat.beta_outcome,
+      bmi_insulin$dat.se_outcome
+    )
+  )
+# MR-Egger
+mreggerfit <-
+  mr_egger(
+    mr_input(
+      bmi_insulin$dat.beta_exposure,
+      bmi_insulin$dat.se_exposure,
+      bmi_insulin$dat.beta_outcome,
+      bmi_insulin$dat.se_outcome
+    )
+  )
+
+# Bayesian MR-Egger
+pseudo <-
+  mr_egger_rjags(
+    mr_format(
+      bmi_insulin$dat.SNP,
+      bmi_insulin$dat.beta_exposure,
+      bmi_insulin$dat.beta_outcome,
+      bmi_insulin$dat.se_exposure,
+      bmi_insulin$dat.se_outcome
+    ),
+    methods = "pseudo",
+    n.chains = 3,
+    seed = c(12, 34, 56)
+  )
+
+
+set.seed(123)
+bj <- bmi_insulin$dat.beta_outcome/bmi_insulin$dat.se_outcome
+wj <- matrix(c(1/bmi_insulin$dat.se_outcome,bmi_insulin$dat.beta_exposure/bmi_insulin$dat.se_outcome), ncol = 2)
+horseprior <- horseshoe(bj,wj, method.tau = "truncatedCauchy", method.sigma = "Jeffreys")
+```
+
+* We fitted summary data models to a dataset investigating the effect of body mass index on insulin resistance [@richmond2017investigating].
+* We compared Bayesian MR-Egger model estimates from models including horseshoe priors from the horseshoe package [@horsepackage].
+* Results are presented in table \@ref(tab:restab) and figure \@ref(fig:plot).
+
+# Conclusion
+
+* We present Bayesian estimation of the IVW and MR-Egger models in our `mrbayes` package.
+* In future work we could implement Bayesian estimation of MVMR models and perform estimation using other programs such as Stan.
+
+# References
+
+<div id="refs" class="references"></div>
+
+#### 
+
+# Figures and Tables
+
+```{r dens, include=TRUE, echo=FALSE, fig.align="center", fig.cap="Density of alternative prior distributions implemented in our package."}
+set.seed(123)
+nobs <- 10000
+
+x <- rnorm(nobs, 0, 100)
+y <- rnorm(nobs, 0, 10)
+z <- rcauchy(nobs, 0, 1)
+
+disdat <- data.frame(Uninformative = x, Weak = y, Pseudo = z)
+disdat <- stack(disdat)
+
+ggplot(disdat, aes(x = values , lines = ind, fill = ind)) + 
+  geom_density() + 
+  scale_fill_discrete(name="Priors") + 
+  xlim(-75, 75) + 
+  xlab("Causal effect") + ylab("Density") + theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"))
+```
+
+
+
+```{r, simtab, echo=FALSE}
+load("10dirpleioo.RData")
+res <- colMeans(dat3)
+mean_est <- c(res[1],res[5],res[9], res[13])
+# mean_se<-c(res[2],res[6],res[10])
+# mean_LI<-c(res[3],res[7],res[11])
+# mean_UI<-c(res[4],res[8],res[12])
+Power <- colMeans(pow3)
+Coverage <- colMeans(cov3)
+tabres <- rbind(mean_est,Power,Coverage)
+colnames(tabres) <-
+  c("IVW", "MR-Egger", "MR-Egger with pseudo-HS prior", "MR-Egger with horseshoe prior")
+rownames(tabres) <- c("Estimate", "Power", "Coverage")
+
+kable(tabres, digits = 4, caption = 'Model performance under directional pleiotropy.') %>%
+  kable_styling("striped", full_width = T)
+```
+
+
+
+```{r, simplot,include=TRUE,echo=FALSE, fig.cap="Distribution of causal effect estimates under directional pleiotropy."}
+Estimates <- stack(dat3, select = c(IVW_est,`MR-Egger_est`,Horseegger_est,Horseegger2_est))
+Models <- rep(c("IVW","MR-Egger","MR-Egger with pseudo-HS prior","MR-Egger with horseshoe prior"), each = 5000)
+boxdat <- data.frame(Estimates,Models)
+ggplot(boxdat, aes(y = values, fill = Models)) + 
+  geom_boxplot() + 
+  geom_hline(yintercept = 0.05) + 
+  xlab("Models") + 
+  ylab("Estimates") + theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"))
+```
+
+
+
+```{r plot, message=FALSE, results=FALSE, echo=FALSE, fig.cap="Scatter plot of genotype-disease versus genotype-phenotype estimates for the effect of BMI on insulin resistance."}
+intercept <- c(0, mreggerfit@Intercept, pseudo$AvgPleio, horseprior$BetaHat[1])
+slope <- c(ivwfit@Estimate, mreggerfit@Estimate, pseudo$CausalEffect, horseprior$BetaHat[2])
+Model <- c("IVW", "MR-Egger", "MR-Egger with pseudo-HS prior","MR-Egger with HS prior")
+damn <- data.frame(intercept, slope, Model)
+
+ggplot(bmi_insulin, aes(dat.beta_exposure, dat.beta_outcome)) + geom_point() + geom_abline(data = damn, aes(
+  intercept = intercept,
+  slope = slope,
+  colour = Model
+)) + xlab("Phenotype-exposure association") + ylab("Phenotype-outcome association") + theme(axis.text=element_text(size=12),
+        axis.title=element_text(size=14,face="bold"))
+```
+
+
+
+
+
+```{r, restab, echo=FALSE}
+Estimat <- rbind(ivwfit@Estimate,mreggerfit@Intercept,mreggerfit@Estimate, 
+                  pseudo$AvgPleio, pseudo$CausalEffect, horseprior$BetaHat[1],
+                  horseprior$BetaHat[2])
+Estimate <- round(Estimat, digits = 4)
+
+CI <-
+  rbind(
+    paste0(
+      round(ivwfit@CILower, digits = 4),
+      ", ",
+      round(ivwfit@CIUpper, digits = 4)
+    ),
+    paste0(
+      round(mreggerfit@CILower.Int, digits = 4),
+      ", ",
+      round(mreggerfit@CIUpper.Int),
+      digits = 4
+    ),
+    paste0(round(mreggerfit@CILower.Est, digits = 4), ", ", round(mreggerfit@CIUpper.Est, digits = 4)),
+    paste0(unname(round(
+      pseudo$AvgPleioCI[1], digits = 4
+    )), ", ", unname(round(
+      pseudo$AvgPleioCI[3], digits = 4
+    ))),
+    paste0(unname(
+      round(pseudo$CredibleInterval[1], digits = 4)
+    ), ", ", unname(
+      round(pseudo$CredibleInterval[3], digits = 4)
+    )),
+    paste0(round(horseprior$LeftCI[1], digits = 4), ", ", round(horseprior$RightCI[1],digits = 4)),
+    paste0(round(horseprior$LeftCI[2], digits = 4), ", ", round(horseprior$RightCI[2]), digits = 4)
+  )
+
+
+Model <-
+  c("IVW","MR-Egger",
+    "MR-Egger","MR-Egger with pseudo-HS prior",
+    "MR-Egger with pseudo-HS prior",
+    "MR-Egger with HS prior","MR-Egger with HS prior")
+
+Coefficient <- c("Slope", "Intercept", "Slope", "Intercept", "Slope","Intercept", "Slope")
+
+restab <- cbind(Model, Coefficient, Estimate, CI)
+colnames(restab) <- c("Model","Coefficient","Estimate","95% Confidence/Credible Interval")
+
+kableExtra::kable(restab,
+                  caption = "Estimates of the causal effect of BMI on insulin resistance.")%>%
+  kable_styling("striped")
+```
+
